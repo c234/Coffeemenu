@@ -27,6 +27,8 @@
         /* 購物車樣式 */
         .cart-item { display: flex; justify-content: space-between; margin-bottom: 10px; color: #555; }
         .total { font-size: 1.5em; text-align: right; color: #d35400; font-weight: bold; margin-top: 15px; }
+        .qty-btn { background: #f1f2f6; color: #333; padding: 2px 8px; border-radius: 4px; margin: 0 5px; font-size: 0.8em;}
+        .del-btn { background: #ff4757; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;}
         #loading { text-align: center; padding: 20px; color: #888; font-style: italic; }
     </style>
 </head>
@@ -108,7 +110,7 @@
         renderCart();
     }
 
-    // 4. 顯示訂單明細
+    // 4. 顯示訂單明細 (新增減少與刪除功能)
     function renderCart() {
         const list = document.getElementById('cart-list');
         let total = 0;
@@ -123,12 +125,40 @@
                 total += itemTotal;
                 list.innerHTML += `
                     <div class="cart-item">
-                        <span>${name} x ${cart[name].qty}</span>
-                        <span>$${itemTotal}</span>
+                        <span>
+                            <b>${name}</b> <br>
+                            <button class="qty-btn" onclick="updateQty('${name}', -1)">-</button>
+                            ${cart[name].qty}
+                            <button class="qty-btn" onclick="updateQty('${name}', 1)">+</button>
+                        </span>
+                        <span>
+                            $${itemTotal}
+                            <button class="del-btn" onclick="removeFromCart('${name}')">刪除</button>
+                        </span>
                     </div>`;
             });
         }
         document.getElementById('total-price').innerText = total;
+    }
+
+    // 更新數量 (最少為 1)
+    function updateQty(name, change) {
+        if (cart[name]) {
+            cart[name].qty += change;
+            if (cart[name].qty <= 0) {
+                removeFromCart(name); // 數量減到 0 就自動移除
+            } else {
+                renderCart();
+            }
+        }
+    }
+
+    // 直接移除該品項
+    function removeFromCart(name) {
+        if (confirm(`確定要移除「${name}」嗎？`)) {
+            delete cart[name];
+            renderCart();
+        }
     }
 
     // 5. 送出訂單按鈕
@@ -160,4 +190,5 @@
 
 </body>
 </html>
+
 
