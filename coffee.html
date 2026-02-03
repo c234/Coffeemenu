@@ -3,63 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>咖啡廳</title>
+    <title>XXX Cafe~</title>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #fdfaf6; }
-        .menu-card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h1 { color: #6f4e37; text-align: center; }
+        :root { --main-color: #6f4e37; --bg-color: #fdfaf6; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: var(--bg-color); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: auto; }
+        h1 { text-align: center; color: var(--main-color); margin-bottom: 25px; }
+        
+        /* 菜單卡片樣式 */
+        .section { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
         .item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #eee; }
-        .item-info b { font-size: 1.1em; }
+        .item:last-child { border-bottom: none; }
+        .item-info b { font-size: 1.1em; display: block; margin-bottom: 4px; }
         .price { color: #e67e22; font-weight: bold; }
-        button { background: #6f4e37; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
-        .cart-section { margin-top: 30px; background: #fff; padding: 20px; border-radius: 15px; border: 2px solid #6f4e37; }
-        .total { font-size: 1.4em; text-align: right; color: #d35400; font-weight: bold; }
-        #loading { text-align: center; color: #888; }
+        
+        /* 按鈕樣式 */
+        button { cursor: pointer; border: none; transition: 0.3s; }
+        .add-btn { background: var(--main-color); color: white; padding: 8px 16px; border-radius: 8px; font-size: 0.9em; }
+        .add-btn:active { transform: scale(0.9); }
+        .send-btn { background: #28a745; color: white; width: 100%; padding: 15px; border-radius: 10px; font-size: 1.2em; font-weight: bold; margin-top: 15px; }
+        .send-btn:hover { background: #218838; }
+        
+        /* 購物車樣式 */
+        .cart-item { display: flex; justify-content: space-between; margin-bottom: 10px; color: #555; }
+        .total { font-size: 1.5em; text-align: right; color: #d35400; font-weight: bold; margin-top: 15px; }
+        #loading { text-align: center; padding: 20px; color: #888; font-style: italic; }
     </style>
 </head>
 <body>
 
-<div class="menu-card">
-    <h1>☕ Menu</h1>
-    <p id="loading">載入最新菜單中...</p>
-    <div id="menu-list"></div>
-</div>
+<div class="container">
+    <h1>☕ XXX Cafe~</h1>
 
-<div class="cart-section">
-    <h3>🛒 您的點餐</h3>
-    <div id="cart-list"></div>
-    <hr>
-    <div class="total">總金額: $<span id="total-price">0</span></div>
+    <div class="section">
+        <h3>📖 今日菜單</h3>
+        <p id="loading">讀取最新價目表中...</p>
+        <div id="menu-list"></div>
+    </div>
+
+    <div class="section">
+        <h3>🛒 我的訂單明細</h3>
+        <div id="cart-list">
+            <p style="color:#aaa;">尚未選擇品項</p>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <div class="total">總金額: $<span id="total-price">0</span></div>
+        
+        <button onclick="sendOrder()" class="send-btn">✅ 確認送出訂單</button>
+    </div>
 </div>
 
 <script>
-    // ⚠️ 請在這裡貼上你從 Google 試算表「發佈到網路」獲取的 CSV 連結
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRClNAn77rk0_8MvJxp9_uUjIfHPNoFPMBcC4Pye9Rz_zMZ1Br9IU8OZiqTNVzTX1YjLi22Krty4Qxt/pub?output=csv'; 
+    // ⚠️ 這裡請換成你從 Google 試算表「發佈到網路」獲取的 CSV 連結
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRClNAn77rk0_8MvJxp9_uUjIfHPNoFPMBcC4Pye9Rz_zMZ1Br9IU8OZiqTNVzTX1YjLi22Krty4Qxt/pubhtml'; 
 
     let menuData = [];
     let cart = {};
 
-    // 抓取 Google 試算表資料
+    // 1. 從雲端抓取菜單
     async function fetchMenu() {
         try {
             const response = await fetch(CSV_URL);
             const data = await response.text();
             
-            // 解析 CSV 格式 (跳過第一列標題)
-            const rows = data.split('\n').slice(1);
+            // 解析 CSV 格式
+            const rows = data.split('\n').slice(1); // 跳過第一列標題
             menuData = rows.map(row => {
-                const [name, price] = row.split(',');
-                return { name: name.trim(), price: parseInt(price) };
+                const cols = row.split(',');
+                return { 
+                    name: cols[0] ? cols[0].trim() : "", 
+                    price: cols[1] ? parseInt(cols[1]) : NaN 
+                };
             }).filter(item => item.name && !isNaN(item.price));
 
             document.getElementById('loading').style.display = 'none';
             renderMenu();
         } catch (error) {
-            document.getElementById('loading').innerText = '讀取失敗，請檢查網路或連結。';
-            console.error(error);
+            document.getElementById('loading').innerText = '載入失敗，請檢查網路或 CSV 連結是否正確。';
         }
     }
 
+    // 2. 顯示菜單
     function renderMenu() {
         const list = document.getElementById('menu-list');
         list.innerHTML = '';
@@ -67,14 +91,15 @@
             list.innerHTML += `
                 <div class="item">
                     <div class="item-info">
-                        <b>${item.name}</b><br>
+                        <b>${item.name}</b>
                         <span class="price">$${item.price}</span>
                     </div>
-                    <button onclick="addToCart('${item.name}', ${item.price})">加入</button>
+                    <button class="add-btn" onclick="addToCart('${item.name}', ${item.price})">點餐</button>
                 </div>`;
         });
     }
 
+    // 3. 加入購物車
     function addToCart(name, price) {
         if (!cart[name]) {
             cart[name] = { price: price, qty: 0 };
@@ -83,22 +108,55 @@
         renderCart();
     }
 
+    // 4. 顯示訂單明細
     function renderCart() {
         const list = document.getElementById('cart-list');
         let total = 0;
         list.innerHTML = '';
-        for (let name in cart) {
-            const itemTotal = cart[name].price * cart[name].qty;
-            total += itemTotal;
-            list.innerHTML += `<p>${name} x ${cart[name].qty} = $${itemTotal}</p>`;
+        
+        const cartKeys = Object.keys(cart);
+        if (cartKeys.length === 0) {
+            list.innerHTML = '<p style="color:#aaa;">尚未選擇品項</p>';
+        } else {
+            cartKeys.forEach(name => {
+                const itemTotal = cart[name].price * cart[name].qty;
+                total += itemTotal;
+                list.innerHTML += `
+                    <div class="cart-item">
+                        <span>${name} x ${cart[name].qty}</span>
+                        <span>$${itemTotal}</span>
+                    </div>`;
+            });
         }
         document.getElementById('total-price').innerText = total;
     }
 
-    // 初始化讀取
+    // 5. 送出訂單按鈕
+    function sendOrder() {
+        const total = document.getElementById('total-price').innerText;
+        
+        if (total === "0") {
+            alert("購物車是空的，請先選擇想喝的咖啡喔！");
+            return;
+        }
+
+        let summary = "感謝您的訂單！\n\n內容如下：\n";
+        for (let name in cart) {
+            summary += `${name} x ${cart[name].qty}\n`;
+        }
+        summary += `\n總計金額：$${total}\n\n請至櫃檯完成結帳。`;
+
+        alert(summary);
+
+        // 送出後清空購物車
+        cart = {};
+        renderCart();
+        window.scrollTo(0, 0);
+    }
+
+    // 啟動程式
     fetchMenu();
 </script>
 
 </body>
 </html>
-
