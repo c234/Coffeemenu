@@ -2,181 +2,101 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>咖啡廳點餐系統 - 穩定修復版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>同步雲端菜單 - 咖啡廳</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; max-width: 900px; margin: 20px auto; padding: 20px; background: #f8f5f2; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #6f4e37; margin-bottom: 20px; padding-bottom: 10px; }
-        .container { display: flex; gap: 20px; }
-        .section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1; min-height: 300px; }
-        .role-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; }
-        .admin-mode { background: #ff4757; color: white; }
-        .user-mode { background: #2ed573; color: white; }
-        .item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px; border-bottom: 1px solid #eee; }
-        button { cursor: pointer; border: none; padding: 8px 15px; border-radius: 6px; transition: 0.2s; }
-        .btn-order { background: #6f4e37; color: white; }
-        .btn-delete { background: #ff4757; color: white; margin-left: 5px; }
-        #admin-panel { display: none; margin-top: 30px; background: #343a40; color: white; padding: 25px; border-radius: 12px; }
-        #admin-panel.active { display: block; }
-        .admin-input-group { display: flex; gap: 10px; margin-top: 10px; }
-        input { padding: 10px; border: 1px solid #ccc; border-radius: 4px; flex: 1; }
-        .total-box { font-size: 1.5em; font-weight: bold; color: #6f4e37; text-align: right; margin-top: 20px; border-top: 2px solid #eee; padding-top: 10px; }
+        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #fdfaf6; }
+        .menu-card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #6f4e37; text-align: center; }
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #eee; }
+        .item-info b { font-size: 1.1em; }
+        .price { color: #e67e22; font-weight: bold; }
+        button { background: #6f4e37; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+        .cart-section { margin-top: 30px; background: #fff; padding: 20px; border-radius: 15px; border: 2px solid #6f4e37; }
+        .total { font-size: 1.4em; text-align: right; color: #d35400; font-weight: bold; }
+        #loading { text-align: center; color: #888; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>☕ XXX咖啡廳</h1>
-    <div>
-        <span id="role-text" class="role-badge user-mode">顧客模式</span>
-        <button onclick="toggleMode()" style="background: #ddd; margin-left: 10px; color: #333;">切換身分</button>
-    </div>
+<div class="menu-card">
+    <h1>☕ 雲端即時菜單</h1>
+    <p id="loading">載入最新菜單中...</p>
+    <div id="menu-list"></div>
 </div>
 
-<div class="container">
-    <div class="section">
-        <h2>📜 本日菜單</h2>
-        <div id="menu-display"></div>
-    </div>
-
-    <div class="section">
-        <h2>🛒 點餐清單</h2>
-        <div id="cart-display"></div>
-        <div class="total-box">總金額: $<span id="total-amount">0</span></div>
-        <button onclick="checkout()" style="width: 100%; padding: 15px; background: #2ed573; color: white; font-size: 1.1em; margin-top: 15px; font-weight: bold;">發送訂單</button>
-    </div>
-</div>
-
-<div id="admin-panel">
-    <h3>🛠 工作人員後台管理</h3>
-    <div class="admin-input-group">
-        <input type="text" id="new-item-name" placeholder="輸入產品名稱 (例如: 藍山咖啡)">
-        <input type="number" id="new-item-price" placeholder="價格">
-        <button onclick="updateMenu()" style="background: #f1c40f; color: #333; font-weight: bold;">確認新增/修改</button>
-    </div>
-    <p style="color: #aaa; font-size: 0.85em; margin-top: 10px;">* 輸入現有產品名稱即可調整價格；輸入新產品則會直接上架。</p>
+<div class="cart-section">
+    <h3>🛒 您的點餐</h3>
+    <div id="cart-list"></div>
+    <hr>
+    <div class="total">總金額: $<span id="total-price">0</span></div>
 </div>
 
 <script>
-    // --- 核心資料處理 ---
-    let isAdmin = false;
-    
-    // 從瀏覽器記憶體讀取菜單，如果沒有就用預設的
-    let defaultMenu = { "美式咖啡": 80, "拿鐵咖啡": 120, "精選甜點": 90 };
-    let menu = JSON.parse(localStorage.getItem('cafe_menu')) || defaultMenu;
+    // ⚠️ 請在這裡貼上你從 Google 試算表「發佈到網路」獲取的 CSV 連結
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRClNAn77rk0_8MvJxp9_uUjIfHPNoFPMBcC4Pye9Rz_zMZ1Br9IU8OZiqTNVzTX1YjLi22Krty4Qxt/pub?output=csv'; 
+
+    let menuData = [];
     let cart = {};
 
-    // --- 功能函式 ---
-
-    // 1. 切換模式
-    function toggleMode() {
-        if (!isAdmin) {
-            let password = prompt("請輸入工作人員授權碼 (1234):");
-            if (password === "1234") {
-                isAdmin = true;
-                document.getElementById('admin-panel').classList.add('active');
-                document.getElementById('role-text').innerText = "工作人員模式";
-                document.getElementById('role-text').className = "role-badge admin-mode";
-            } else {
-                alert("密碼錯誤！");
-            }
-        } else {
-            isAdmin = false;
-            document.getElementById('admin-panel').classList.remove('active');
-            document.getElementById('role-text').innerText = "顧客模式";
-            document.getElementById('role-text').className = "role-badge user-mode";
-        }
-        renderMenu(); // 刷新菜單顯示刪除鈕
-    }
-
-    // 2. 顯示菜單 (核心修改處)
-    function renderMenu() {
-        const menuDiv = document.getElementById('menu-display');
-        menuDiv.innerHTML = '';
-        
-        for (let item in menu) {
-            const deleteBtn = isAdmin ? `<button class="btn-delete" onclick="deleteProduct('${item}')">刪除</button>` : '';
+    // 抓取 Google 試算表資料
+    async function fetchMenu() {
+        try {
+            const response = await fetch(CSV_URL);
+            const data = await response.text();
             
-            menuDiv.innerHTML += `
-                <div class="item">
-                    <span><strong>${item}</strong><br><small>$${menu[item]}</small></span>
-                    <div>
-                        <button class="btn-order" onclick="addToCart('${item}')">點餐</button>
-                        ${deleteBtn}
-                    </div>
-                </div>`;
-        }
-    }
+            // 解析 CSV 格式 (跳過第一列標題)
+            const rows = data.split('\n').slice(1);
+            menuData = rows.map(row => {
+                const [name, price] = row.split(',');
+                return { name: name.trim(), price: parseInt(price) };
+            }).filter(item => item.name && !isNaN(item.price));
 
-    // 3. 管理員：新增或修改產品
-    function updateMenu() {
-        const nameInput = document.getElementById('new-item-name');
-        const priceInput = document.getElementById('new-item-price');
-        const name = nameInput.value.trim();
-        const price = parseInt(priceInput.value);
-
-        if (name && !isNaN(price)) {
-            menu[name] = price; // 修改或新增
-            saveMenu();         // 存檔到 localStorage
-            renderMenu();       // 刷新畫面
-            nameInput.value = '';
-            priceInput.value = '';
-            alert(`已更新：${name} $${price}`);
-        } else {
-            alert("請填寫正確的名稱與數字價格！");
-        }
-    }
-
-    // 4. 管理員：刪除產品
-    function deleteProduct(item) {
-        if(confirm(`確定要把 ${item} 下架嗎？`)) {
-            delete menu[item];
-            if(cart[item]) delete cart[item];
-            saveMenu();
+            document.getElementById('loading').style.display = 'none';
             renderMenu();
-            renderCart();
+        } catch (error) {
+            document.getElementById('loading').innerText = '讀取失敗，請檢查網路或連結。';
+            console.error(error);
         }
     }
 
-    // 5. 存檔功能
-    function saveMenu() {
-        localStorage.setItem('cafe_menu', JSON.stringify(menu));
+    function renderMenu() {
+        const list = document.getElementById('menu-list');
+        list.innerHTML = '';
+        menuData.forEach(item => {
+            list.innerHTML += `
+                <div class="item">
+                    <div class="item-info">
+                        <b>${item.name}</b><br>
+                        <span class="price">$${item.price}</span>
+                    </div>
+                    <button onclick="addToCart('${item.name}', ${item.price})">加入</button>
+                </div>`;
+        });
     }
 
-    // 6. 點餐與購物車
-    function addToCart(item) {
-        cart[item] = (cart[item] || 0) + 1;
+    function addToCart(name, price) {
+        if (!cart[name]) {
+            cart[name] = { price: price, qty: 0 };
+        }
+        cart[name].qty++;
         renderCart();
     }
 
     function renderCart() {
-        const cartDiv = document.getElementById('cart-display');
+        const list = document.getElementById('cart-list');
         let total = 0;
-        cartDiv.innerHTML = '';
-        
-        for (let item in cart) {
-            if(menu[item]) { // 確保產品還在菜單上
-                const itemTotal = menu[item] * cart[item];
-                total += itemTotal;
-                cartDiv.innerHTML += `
-                    <div class="item">
-                        <span>${item} x ${cart[item]}</span>
-                        <span>$${itemTotal}</span>
-                    </div>`;
-            }
+        list.innerHTML = '';
+        for (let name in cart) {
+            const itemTotal = cart[name].price * cart[name].qty;
+            total += itemTotal;
+            list.innerHTML += `<p>${name} x ${cart[name].qty} = $${itemTotal}</p>`;
         }
-        document.getElementById('total-amount').innerText = total;
+        document.getElementById('total-price').innerText = total;
     }
 
-    function checkout() {
-        const total = document.getElementById('total-amount').innerText;
-        if (total === "0") return alert("購物車還沒有東西喔！");
-        alert(`訂單發送成功！總金額為 $${total}，請稍候取餐。`);
-        cart = {};
-        renderCart();
-    }
-
-    // 初始啟動
-    renderMenu();
+    // 初始化讀取
+    fetchMenu();
 </script>
 
 </body>
